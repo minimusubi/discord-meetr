@@ -1,6 +1,7 @@
-import {bold, channelMention, italic, SlashCommandBuilder, userMention} from '@discordjs/builders';
+import {bold, channelMention, hyperlink, italic, SlashCommandBuilder, userMention} from '@discordjs/builders';
 import {ChannelType} from 'discord-api-types/v10';
-import {MessageEmbed} from 'discord.js';
+import {Attachment, EmbedBuilder} from 'discord.js';
+import {inferTime} from '../util/time.js';
 
 export const data = new SlashCommandBuilder()
 	.setName('end')
@@ -8,27 +9,39 @@ export const data = new SlashCommandBuilder()
 	.addChannelOption((option) => {
 		return option.setName('channel')
 			.setDescription('Specify the voice channel')
-			.addChannelType(ChannelType.GuildVoice);
+			.addChannelTypes(ChannelType.GuildVoice);
+	}).addStringOption((option) => {
+		return option.setName('time')
+			.setDescription('Override the end time');
 	});
 
 export async function endMeeting(interaction, channel) {
 	const meetingStore = (interaction ?? channel).client.singletons.meetingStore;
+	const endTime = interaction?.options?.getString('time') ?? null;
 	
 	try {
 		const meeting = meetingStore.getMeeting(channel);
 		const topic = meeting.getTopic();
 		meetingStore.stopMeeting(channel);
 		
-		// const content = `Ended the meeting ${topic ? `for ${inlineCode(topic)} ` : ''}in ${channelMention(channelID)}! It ran for ${bold(meeting.getDuration())}.`;
-		const embed = new MessageEmbed()
+		if (endTime) {
+			const parts = inferTime(endTime);
+			
+			if (parts) {
+				meeting.setEndTime(parts);
+			}
+		}
+		
+		const calendarAttachment = new Attachment(meeting.getCalendarEvent(), 'event.ics');
+		const embed = new EmbedBuilder()
 			.setTitle('Meeting Summary')
 			.setColor('#6c31ff')
-			.addFields(
+			.addFields([
 				{
 					name: 'Participants',
-					value: meeting.getMembers().map((member) => {
-						return userMention(member.id);
-					}).join(' ') || italic('No participants'),
+					value: meeting.getMembers().map(([member, duration]) => {
+						return `${userMention(member.id)} ${duration}`;
+					}).join('\n') || italic('No participants'),
 					inline: false,
 				},
 				{
@@ -40,15 +53,20 @@ export async function endMeeting(interaction, channel) {
 					name: 'Duration',
 					value: `Ran for ${bold(meeting.getDuration())}`,
 					inline: true,
-				}
-			).setFooter({text: `Started by ${meeting.getOwner().displayName}`, iconURL: meeting.getOwner().displayAvatarURL()});
+				},
+				{
+					name: 'Add to Outlook on the Web',
+					value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink())),
+					inline: false,
+				},
+			]).setFooter({text: `Started by ${meeting.getOwner().displayName}`, iconURL: meeting.getOwner().displayAvatarURL()});
 			
 		if (topic) {
 			embed.setDescription(topic);
 		}
 		
 		const sendMessage = interaction?.reply?.bind(interaction) ?? meeting.getTextChannel().send.bind(meeting.getTextChannel());
-		await sendMessage({embeds: [embed]});
+		await sendMessage({embeds: [embed], files: [calendarAttachment]});
 		
 	} catch (error) {
 		if (error.name === 'NoMeetingExistsError') {
@@ -60,7 +78,7 @@ export async function endMeeting(interaction, channel) {
 	}
 }
 
-export async function execute(interaction) {
+export async function onCommand(interaction) {
 	const member = interaction.member;
 	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') ?? null;
 	
@@ -69,10 +87,10 @@ export async function execute(interaction) {
 		return;
 	}
 	
-	await endMeeting(null, voiceChannel);
+	await endMeeting(interaction, voiceChannel);
 }
 
-export async function executeButton(interaction, customData) {
+export async function onButton(interaction, customData) {
 	const channel = await interaction.guild.channels.fetch(customData);
 	await endMeeting(interaction, channel);
 }

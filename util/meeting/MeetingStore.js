@@ -1,11 +1,12 @@
 import {Collection} from 'discord.js';
+import {readFile, writeFile} from 'fs/promises';
 import Meeting from './Meeting.js';
 import {MeetingExistsError, NoMeetingExistsError} from './MeetingErrors.js';
 
 export default class MeetingStore {
 	constructor() {
 		this.ongoingMeetings = new Collection();
-		this.pastMeetings = [];
+		// this.pastMeetings = [];
 	}
 	
 	startMeeting(voiceChannel, textChannel, member) {
@@ -15,6 +16,7 @@ export default class MeetingStore {
 		
 		const meeting = new Meeting(voiceChannel, textChannel, member);
 		this.ongoingMeetings.set(voiceChannel.id, meeting);
+		console.log(`Active meetings: ${this.ongoingMeetings.size}`);
 		
 		return meeting;
 	}
@@ -31,7 +33,16 @@ export default class MeetingStore {
 		const meeting = this.getMeeting(channel);
 		
 		meeting.end();
-		this.pastMeetings.push(meeting);
+		// this.pastMeetings.push(meeting);
 		this.ongoingMeetings.delete(channel.id);
+		console.log(`Active meetings: ${this.ongoingMeetings.size}`);
+	}
+	
+	async save() {
+		// await writeFile('data/meetings.json', JSON.stringify(this.ongoingMeetings.entries))
+	}
+	
+	async load() {
+		
 	}
 }

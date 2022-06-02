@@ -1,6 +1,7 @@
 import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builders';
-import {ChannelType} from 'discord-api-types/v10';
-import {MessageActionRow, MessageButton} from 'discord.js';
+import {ChannelType, ButtonStyle} from 'discord-api-types/v10';
+import {ActionRowBuilder, ButtonBuilder} from 'discord.js';
+import { inferTime } from '../util/time.js';
 
 export const data = new SlashCommandBuilder()
 	.setName('start')
@@ -11,14 +12,18 @@ export const data = new SlashCommandBuilder()
 	}).addChannelOption((option) => {
 		return option.setName('channel')
 			.setDescription('Set the voice channel')
-			.addChannelType(ChannelType.GuildVoice);
+			.addChannelTypes(ChannelType.GuildVoice);
+	}).addStringOption((option) => {
+		return option.setName('time')
+			.setDescription('Override the start time');
 	});
 	
-export async function execute(interaction) {
+export async function onCommand(interaction) {
 	const meetingStore = interaction.client.singletons.meetingStore;
 	const member = interaction.member;
 	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') ?? null;
 	const topic = interaction.options.getString('topic');
+	const startTime = interaction.options.getString('time');
 	
 	if (voiceChannel === null) {
 		await interaction.reply({content: 'Error: You are not in a voice channel, nor did you specify one.', ephemeral: true});
@@ -29,15 +34,23 @@ export async function execute(interaction) {
 		const meeting = meetingStore.startMeeting(voiceChannel, interaction.channel, interaction.member);
 		meeting.setTopic(topic);
 		
+		if (startTime) {
+			const parts = inferTime(startTime);
+			
+			if (parts) {
+				meeting.setStartTime(parts);
+			}
+		}
+		
 		const content = `Started a meeting ${topic ? `for ${inlineCode(topic)} ` : ''}in ${channelMention(voiceChannel.id)}!`;
-		const row = new MessageActionRow()
-			.addComponents(
-				new MessageButton()
+		const row = new ActionRowBuilder()
+			.addComponents([
+				new ButtonBuilder()
 					.setCustomId(JSON.stringify({data: voiceChannel.id, command: 'end'}))
 					.setEmoji('🛑')
 					.setLabel('End')
-					.setStyle('PRIMARY')
-			);
+					.setStyle(ButtonStyle.Primary),
+			]);
 		await interaction.reply({content, components: [row]});
 	} catch (error) {
 		if (error.name === 'MeetingExistsError') {

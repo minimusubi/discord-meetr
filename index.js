@@ -1,8 +1,13 @@
-import {Client, Intents} from 'discord.js';
+import {Client} from 'discord.js';
+import {GatewayIntentBits} from 'discord-api-types/v10';
 import loadCommands from './load/loadCommands.js';
 import loadSingletons from './load/loadSingletons.js';
 
-const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES]});
+const client = new Client({intents: [
+	GatewayIntentBits.Guilds,
+	GatewayIntentBits.GuildVoiceStates,
+	GatewayIntentBits.MessageContent,
+]});
 
 await loadCommands(client);
 await loadSingletons(client);
@@ -15,12 +20,14 @@ client.on('interactionCreate', async (interaction) => {
 	if (interaction.isCommand()) {
 		const command = client.commands.get(interaction.commandName);
 		
-		if (!command) {
+		if (!command?.onCommand) {
+			console.error('No command handler available to handle interation!');
+			console.error(`Command: ${interaction.commandName}`);
 			return;
 		}
 
 		try {
-			await command.execute(interaction);
+			await command.onCommand(interaction);
 		} catch (error) {
 			console.error(error);
 			await interaction.reply({content: 'There was an error while executing this command!', ephemeral: true});
@@ -29,12 +36,14 @@ client.on('interactionCreate', async (interaction) => {
 		const metadata = JSON.parse(interaction.customId);
 		const command = client.commands.get(metadata.command);
 		
-		if (!command?.executeButton) {
+		if (!command?.onButton) {
+			console.error('No button handler available to handle interation!');
+			console.error(`Metadata: ${JSON.stringify(metadata)}`);
 			return;
 		}
 
 		try {
-			await command.executeButton(interaction, metadata.data);
+			await command.onButton(interaction, metadata.data);
 		} catch (error) {
 			console.error(error);
 			await interaction.reply({content: 'There was an error while executing this button!', ephemeral: true});

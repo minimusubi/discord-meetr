@@ -1,11 +1,12 @@
+import datebook from 'datebook';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
-import relativeTime from 'dayjs/plugin/relativeTime.js';
 import {endMeeting} from '../../commands/end.js';
-import {pluralize} from '../number.js';
+import {getHumanDuration, getShortDuration} from '../time.js';
+import Stopwatch from '../Stopwatch.js';
+const {ICalendar, OutlookCalendar} = datebook;
 
 dayjs.extend(duration);
-dayjs.extend(relativeTime);
 
 export default class Meeting {
 	constructor(voiceChannel, textChannel, owner) {
@@ -13,12 +14,14 @@ export default class Meeting {
 		this.textChannel = textChannel;
 		this.topic = null;
 		this.owner = owner;
-		this.members = new Set();
 		this.startTime = dayjs();
 		this.endTime = null;
+		this.members = new Map();
 		this.listener = async (oldState, newState) => {
 			if (newState.channelId === this.voiceChannel.id) {
-				this.members.add(newState.member);
+				this.addMember(newState.member);
+			} else if (oldState.channelId === this.voiceChannel.id && newState.channelId !== this.voiceChannel.id) {
+				this.removeMember(newState.member);
 			}
 			
 			if (this.voiceChannel.members.size === 0) {
@@ -30,7 +33,7 @@ export default class Meeting {
 		voiceChannel.client.on('voiceStateUpdate', this.listener);
 		
 		for (const [, member] of voiceChannel.members) {
-			this.members.add(member);
+			this.addMember(member);
 		}
 	}
 	
@@ -43,7 +46,7 @@ export default class Meeting {
 	}
 	
 	setTopic(topic) {
-		this.topic = topic;
+		this.topic = topic ?? null;
 	}
 	
 	getTopic() {
@@ -54,54 +57,93 @@ export default class Meeting {
 		return this.owner;
 	}
 	
+	setStartTime(parts) {
+		this.startTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
+		
+		for (const [, stopwatch] of this.members) {
+			stopwatch.time = this.startTime.toDate().valueOf();
+		}
+	}
+	
+	setEndTime(parts) {
+		this.endTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
+		
+		for (const [, stopwatch] of this.members) {
+			stopwatch.duration = this.endTime.toDate().valueOf() - stopwatch.time;
+		}
+	}
+	
 	addMember(member) {
-		this.members.add(member);
+		if (!this.members.has(member)) {
+			this.members.set(member, new Stopwatch());
+		}
+		
+		try {
+			this.members.get(member).start();
+		} catch (error) {
+			console.log('member: ', member);
+			console.log('stopwatch: ', this.members.get(member));
+		}
+	}
+	
+	removeMember(member) {
+		if (!this.members.has(member)) {
+			return;
+		}
+		
+		this.members.get(member).stop();
 	}
 	
 	getMembers() {
-		return Array.from(this.members);
+		return Array.from(this.members).map(([member, timer]) => {
+			return [member, getShortDuration(timer.getTime())];
+		});
 	}
 	
 	end() {
 		this.endTime = dayjs();
 		this.voiceChannel.client.off('voiceStateUpdate', this.listener);
+		
+		for (const [, timer] of this.members) {
+			timer.stop();
+		}
 	}
 	
 	getDuration() {
-		const length = dayjs.duration(this.endTime.diff(this.startTime));
-		const parts = [];
-		let days = length.days();
-		let hours = length.hours();
-		let minutes = length.minutes();
-		let seconds = length.seconds();
-		
-		if (seconds >= 45) {
-			seconds = 0;
-			minutes++;
-		}
-		if (minutes >= 45) {
-			minutes = 0;
-			hours++;
-		}
-		if (hours >= 22) {
-			hours = 0;
-			days++;
+		return getHumanDuration(this.endTime.diff(this.startTime));
+	}
+	
+	getCalendarOptions() {
+		if (this.endTime === null) {
+			return null;
 		}
 		
-		parts.push({label: 'day', value: days});
-		parts.push({label: 'hour', value: hours});
-		parts.push({label: 'minute', value: minutes});
-		parts.push({label: 'second', value: seconds});
+		return {
+			title: this.topic ?? 'Unnamed Meeting',
+			location: `#${this.voiceChannel.name} in Discord`,
+			start: this.startTime.toDate(),
+			end: this.endTime.toDate(),
+		};
+	}
+	
+	getCalendarEvent() {
+		if (this.endTime === null) {
+			return null;
+		}
 		
-		const largestNonZeroPartIndex = parts.findIndex((part) => {
-			return part.value > 0;
-		});
-		const relevantParts = parts.slice(largestNonZeroPartIndex, largestNonZeroPartIndex + 2).filter((part) => {
-			return part.value > 0;
-		}).map((part) => {
-			return `${part.value} ${pluralize(part.label, part.value)}`;
-		});
+		const calendar = new ICalendar(this.getCalendarOptions());
 		
-		return relevantParts.join(' and ');
+		return Buffer.from(calendar.render(), 'utf-8');
+	}
+	
+	getCalendarLink() {
+		if (this.endTime === null) {
+			return null;
+		}
+		
+		const calendar = new OutlookCalendar(this.getCalendarOptions());
+		calendar.setHost('office');
+		
+		return calendar.render();
 	}
 }

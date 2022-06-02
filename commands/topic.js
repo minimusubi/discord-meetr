@@ -10,7 +10,7 @@ export const data = new SlashCommandBuilder()
 	}).addChannelOption((option) => {
 		return option.setName('channel')
 			.setDescription('Set the voice channel')
-			.addChannelType(ChannelType.GuildVoice);
+			.addChannelTypes(ChannelType.GuildVoice);
 	});
 
 async function setTopic(interaction, channel) {
@@ -35,7 +35,7 @@ async function setTopic(interaction, channel) {
 	}
 }
 
-export async function execute(interaction) {
+export async function onCommand(interaction) {
 	const member = interaction.member;
 	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') ?? null;
 	
