@@ -5,8 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "deploy": "node -r dotenv/config deploy-commands.js",
-    "start": "node -r dotenv/config index.js",
+    "deploy": "cd src && node -r dotenv/config deploy-commands.js dotenv_config_path=../.env",
+    "start": "cd src && node -r dotenv/config index.js dotenv_config_path=../.env",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
