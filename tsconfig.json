@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"outDir": "./build",
+		"allowJs": true,
+		"target": "es2022",
+		"moduleResolution": "node",
+		"allowSyntheticDefaultImports": true,
+		"module": "es2022",
+		"strict": true,
+	},
+	"include": [
+		"./src/**/*",
+		"src/commands"
+	]
+}

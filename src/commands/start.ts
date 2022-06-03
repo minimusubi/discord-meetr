@@ -1,7 +1,7 @@
 import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builders';
 import {ChannelType, ButtonStyle} from 'discord-api-types/v10';
-import {ActionRowBuilder, ButtonBuilder} from 'discord.js';
-import { inferTime } from '../util/time.js';
+import {ActionRowBuilder, ButtonBuilder, ChatInputCommandInteraction, MessageActionRowComponentBuilder, VoiceBasedChannel} from 'discord.js';
+import {inferTime} from '../util/time.js';
 
 export const data = new SlashCommandBuilder()
 	.setName('start')
@@ -18,10 +18,10 @@ export const data = new SlashCommandBuilder()
 			.setDescription('Override the start time');
 	});
 	
-export async function onCommand(interaction) {
+export async function onCommand(interaction: ChatInputCommandInteraction<'cached'>) {
 	const meetingStore = interaction.client.singletons.meetingStore;
 	const member = interaction.member;
-	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') ?? null;
+	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as VoiceBasedChannel ?? null;
 	const topic = interaction.options.getString('topic');
 	const startTime = interaction.options.getString('time');
 	
@@ -31,6 +31,10 @@ export async function onCommand(interaction) {
 	}
 	
 	try {
+		if (!interaction.channel) {
+			throw new Error('Interaction channel is not cached!');
+		}
+		
 		const meeting = meetingStore.startMeeting(voiceChannel, interaction.channel, interaction.member);
 		meeting.setTopic(topic);
 		
@@ -43,7 +47,7 @@ export async function onCommand(interaction) {
 		}
 		
 		const content = `Started a meeting ${topic ? `for ${inlineCode(topic)} ` : ''}in ${channelMention(voiceChannel.id)}!`;
-		const row = new ActionRowBuilder()
+		const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
 			.addComponents([
 				new ButtonBuilder()
 					.setCustomId(JSON.stringify({data: voiceChannel.id, command: 'end'}))
@@ -53,11 +57,14 @@ export async function onCommand(interaction) {
 			]);
 		await interaction.reply({content, components: [row]});
 	} catch (error) {
-		if (error.name === 'MeetingExistsError') {
-			await interaction.reply({content: `A meeting is already running in ${channelMention(voiceChannel.id)}!`, ephemeral: true});
-		} else {
-			await interaction.reply({content: 'An error has occurred!', ephemeral: true});
-			console.error(error);
+		if (error instanceof Error) {
+			if (error.name === 'MeetingExistsError') {
+				await interaction.reply({content: `A meeting is already running in ${channelMention(voiceChannel.id)}!`, ephemeral: true});
+				return;
+			}
 		}
+		
+		await interaction.reply({content: 'An error has occurred!', ephemeral: true});
+		console.error(error);
 	}
 }

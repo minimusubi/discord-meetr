@@ -5,8 +5,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "deploy": "cd src && node -r dotenv/config deploy-commands.js dotenv_config_path=../.env",
-    "start": "cd src && node -r dotenv/config index.js dotenv_config_path=../.env",
+    "build": "tsc",
+    "deploy": "cd build && node -r dotenv/config deploy-commands.js dotenv_config_path=../.env",
+    "start": "cd build && node -r dotenv/config index.js dotenv_config_path=../.env",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -25,6 +26,9 @@
     "zlib-sync": "^0.1.7"
   },
   "devDependencies": {
+    "@types/node": "^17.0.39",
+    "@typescript-eslint/eslint-plugin": "^5.27.0",
+    "@typescript-eslint/parser": "^5.27.0",
     "eslint": "^8.13.0",
     "typescript": "^4.7.2"
   }

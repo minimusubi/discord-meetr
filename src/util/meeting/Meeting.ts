@@ -1,15 +1,25 @@
-import datebook from 'datebook';
-import dayjs from 'dayjs';
+import datebook, {CalendarOptions} from 'datebook';
+import dayjs, {Dayjs} from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import {endMeeting} from '../../commands/end.js';
-import {getHumanDuration, getShortDuration} from '../time.js';
+import {getHumanDuration, getShortDuration, TimeParts} from '../time.js';
 import Stopwatch from '../Stopwatch.js';
+import {GuildMember, TextBasedChannel, VoiceBasedChannel, VoiceState} from 'discord.js';
 const {ICalendar, OutlookCalendar} = datebook;
 
 dayjs.extend(duration);
 
 export default class Meeting {
-	constructor(voiceChannel, textChannel, owner) {
+	voiceChannel: VoiceBasedChannel;
+	textChannel: TextBasedChannel;
+	topic: string | null;
+	owner: GuildMember;
+	startTime: Dayjs;
+	endTime: Dayjs | null;
+	members: Map<GuildMember, Stopwatch>;
+	listener: (oldState: VoiceState, newState: VoiceState) => void;
+	
+	constructor(voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel, owner: GuildMember) {
 		this.voiceChannel = voiceChannel;
 		this.textChannel = textChannel;
 		this.topic = null;
@@ -18,6 +28,10 @@ export default class Meeting {
 		this.endTime = null;
 		this.members = new Map();
 		this.listener = async (oldState, newState) => {
+			if (!newState.member) {
+				return;
+			}
+			
 			if (newState.channelId === this.voiceChannel.id) {
 				this.addMember(newState.member);
 			} else if (oldState.channelId === this.voiceChannel.id && newState.channelId !== this.voiceChannel.id) {
@@ -45,8 +59,8 @@ export default class Meeting {
 		return this.textChannel;
 	}
 	
-	setTopic(topic) {
-		this.topic = topic ?? null;
+	setTopic(topic: string | null) {
+		this.topic = topic;
 	}
 	
 	getTopic() {
@@ -57,28 +71,22 @@ export default class Meeting {
 		return this.owner;
 	}
 	
-	setStartTime(parts) {
+	setStartTime(parts: TimeParts) {
 		this.startTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
 		
 		for (const [, stopwatch] of this.members) {
-			stopwatch.time = this.startTime.toDate().valueOf();
+			stopwatch.reset();
+			stopwatch.start(this.startTime.toDate().valueOf());
 		}
 	}
 	
-	setEndTime(parts) {
-		this.endTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
-		
-		for (const [, stopwatch] of this.members) {
-			stopwatch.duration = this.endTime.toDate().valueOf() - stopwatch.time;
-		}
-	}
-	
-	addMember(member) {
+	addMember(member: GuildMember) {
 		if (!this.members.has(member)) {
 			this.members.set(member, new Stopwatch());
 		}
 		
 		try {
+			// @ts-ignore If statement above guarantees that member exists in Collection
 			this.members.get(member).start();
 		} catch (error) {
 			console.log('member: ', member);
@@ -86,30 +94,52 @@ export default class Meeting {
 		}
 	}
 	
-	removeMember(member) {
+	removeMember(member: GuildMember) {
 		if (!this.members.has(member)) {
 			return;
 		}
 		
+		// @ts-ignore If statement above guarantees that member exists in Collection
 		this.members.get(member).stop();
 	}
 	
 	getMembers() {
 		return Array.from(this.members).map(([member, timer]) => {
-			return [member, getShortDuration(timer.getTime())];
+			return {member, duration: getShortDuration(timer.getTime())};
 		});
 	}
 	
-	end() {
+	end(endTimeParts?: TimeParts) {
 		this.endTime = dayjs();
 		this.voiceChannel.client.off('voiceStateUpdate', this.listener);
 		
+		if (endTimeParts) {
+			this.endTime = this.endTime.hour(endTimeParts.hours).minute(endTimeParts.minutes).startOf('minute');
+		}
+		
 		for (const [, timer] of this.members) {
-			timer.stop();
+			timer.stop(this.endTime.toDate().valueOf());
+		}
+	}
+	
+	endWithTime(parts: TimeParts) {
+		this.endTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
+		this.voiceChannel.client.off('voiceStateUpdate', this.listener);
+		
+		for (const [, stopwatch] of this.members) {
+			console.log(stopwatch);
+			if (stopwatch.time !== null) {
+				stopwatch.duration = this.endTime.toDate().valueOf() - stopwatch.time;
+				stopwatch.time = null;
+			}
 		}
 	}
 	
 	getDuration() {
+		if (this.endTime === null) {
+			return null;
+		}
+		
 		return getHumanDuration(this.endTime.diff(this.startTime));
 	}
 	
@@ -123,7 +153,7 @@ export default class Meeting {
 			location: `#${this.voiceChannel.name} in Discord`,
 			start: this.startTime.toDate(),
 			end: this.endTime.toDate(),
-		};
+		} as CalendarOptions;
 	}
 	
 	getCalendarEvent() {
@@ -131,6 +161,7 @@ export default class Meeting {
 			return null;
 		}
 		
+		// @ts-ignore If statement above guarantees endTime is not null
 		const calendar = new ICalendar(this.getCalendarOptions());
 		
 		return Buffer.from(calendar.render(), 'utf-8');
@@ -141,6 +172,7 @@ export default class Meeting {
 			return null;
 		}
 		
+		// @ts-ignore If statement above guarantees endTime is not null
 		const calendar = new OutlookCalendar(this.getCalendarOptions());
 		calendar.setHost('office');
 		

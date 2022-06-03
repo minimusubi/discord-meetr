@@ -1,15 +1,17 @@
-import {Collection} from 'discord.js';
-import {readFile, writeFile} from 'fs/promises';
+import {Collection, GuildMember, TextBasedChannel, VoiceBasedChannel} from 'discord.js';
+import { TimeParts } from '../time.js';
 import Meeting from './Meeting.js';
 import {MeetingExistsError, NoMeetingExistsError} from './MeetingErrors.js';
 
 export default class MeetingStore {
+	ongoingMeetings: Collection<string, Meeting>;
+	
 	constructor() {
 		this.ongoingMeetings = new Collection();
 		// this.pastMeetings = [];
 	}
 	
-	startMeeting(voiceChannel, textChannel, member) {
+	startMeeting(voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel, member: GuildMember) {
 		if (this.ongoingMeetings.has(voiceChannel.id)) {
 			throw new MeetingExistsError(`A meeting is already running in ${voiceChannel.id}!`);
 		}
@@ -21,18 +23,20 @@ export default class MeetingStore {
 		return meeting;
 	}
 	
-	getMeeting(channel) {
-		if (!this.ongoingMeetings.has(channel.id)) {
+	getMeeting(channel: VoiceBasedChannel) {
+		const meeting = this.ongoingMeetings.get(channel.id);
+		
+		if (!meeting) {
 			throw new NoMeetingExistsError(`No meeting is running in ${channel.id}!`);
 		}
 		
-		return this.ongoingMeetings.get(channel.id);
+		return meeting;
 	}
 	
-	stopMeeting(channel) {
+	stopMeeting(channel: VoiceBasedChannel, overrideEndTime?: TimeParts) {
 		const meeting = this.getMeeting(channel);
 		
-		meeting.end();
+		meeting.end(overrideEndTime);
 		// this.pastMeetings.push(meeting);
 		this.ongoingMeetings.delete(channel.id);
 		console.log(`Active meetings: ${this.ongoingMeetings.size}`);

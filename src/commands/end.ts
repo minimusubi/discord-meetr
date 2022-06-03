@@ -1,6 +1,7 @@
 import {bold, channelMention, hyperlink, italic, SlashCommandBuilder, userMention} from '@discordjs/builders';
 import {ChannelType} from 'discord-api-types/v10';
-import {Attachment, EmbedBuilder} from 'discord.js';
+import {Attachment, ButtonInteraction, ChatInputCommandInteraction, EmbedBuilder, VoiceBasedChannel} from 'discord.js';
+import Meeting from '../util/meeting/Meeting.js';
 import {inferTime} from '../util/time.js';
 
 export const data = new SlashCommandBuilder()
@@ -15,23 +16,32 @@ export const data = new SlashCommandBuilder()
 			.setDescription('Override the end time');
 	});
 
-export async function endMeeting(interaction, channel) {
+export async function endMeeting(interaction: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'> | null, channel: VoiceBasedChannel) {
 	const meetingStore = (interaction ?? channel).client.singletons.meetingStore;
-	const endTime = interaction?.options?.getString('time') ?? null;
+	// @ts-ignore Below expression behaves correctly
+	const endTime: string | null = interaction?.options?.getString('time') ?? null;
 	
 	try {
-		const meeting = meetingStore.getMeeting(channel);
+		const meeting = meetingStore.getMeeting(channel) as Meeting;
 		const topic = meeting.getTopic();
-		meetingStore.stopMeeting(channel);
 		
 		if (endTime) {
 			const parts = inferTime(endTime);
 			
 			if (parts) {
-				meeting.setEndTime(parts);
+				meetingStore.stopMeeting(channel, parts);
+			} else {
+				meetingStore.stopMeeting(channel);
 			}
+		} else {
+			meetingStore.stopMeeting(channel);
 		}
 		
+		if (!meeting.endTime) {
+			throw new Error('Meeting has not ended!');
+		}
+		
+		// @ts-ignore If statement above guarantees calendar functions will be non-nullable
 		const calendarAttachment = new Attachment(meeting.getCalendarEvent(), 'event.ics');
 		const embed = new EmbedBuilder()
 			.setTitle('Meeting Summary')
@@ -39,7 +49,7 @@ export async function endMeeting(interaction, channel) {
 			.addFields([
 				{
 					name: 'Participants',
-					value: meeting.getMembers().map(([member, duration]) => {
+					value: meeting.getMembers().map(({member, duration}) => {
 						return `${userMention(member.id)} ${duration}`;
 					}).join('\n') || italic('No participants'),
 					inline: false,
@@ -51,11 +61,13 @@ export async function endMeeting(interaction, channel) {
 				},
 				{
 					name: 'Duration',
+					// @ts-ignore endTime if statement above guarantees getDuration will be non-nullable
 					value: `Ran for ${bold(meeting.getDuration())}`,
 					inline: true,
 				},
 				{
 					name: 'Add to Outlook on the Web',
+					// @ts-ignore endTime if statement above guarantees calendar functions will be non-nullable
 					value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink())),
 					inline: false,
 				},
@@ -69,18 +81,20 @@ export async function endMeeting(interaction, channel) {
 		await sendMessage({embeds: [embed], files: [calendarAttachment]});
 		
 	} catch (error) {
-		if (error.name === 'NoMeetingExistsError') {
-			await interaction.reply({content: `There is no meeting running in ${channelMention(channel.id)}!`, ephemeral: true});
-		} else {
-			console.error(error);
-			await interaction.reply({content: 'An error has occurred!', ephemeral: true});
+		if (error instanceof Error) {
+			if (error.name === 'NoMeetingExistsError') {
+				await interaction?.reply({content: `There is no meeting running in ${channelMention(channel.id)}!`, ephemeral: true});
+			}
 		}
+		
+		console.error(error);
+		await interaction?.reply({content: 'An error has occurred!', ephemeral: true});
 	}
 }
 
-export async function onCommand(interaction) {
+export async function onCommand(interaction: ChatInputCommandInteraction<'cached'>) {
 	const member = interaction.member;
-	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') ?? null;
+	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as VoiceBasedChannel ?? null;
 	
 	if (voiceChannel === null) {
 		await interaction.reply({content: 'Error: You are not in a voice channel, nor did you specify one.', ephemeral: true});
@@ -90,7 +104,7 @@ export async function onCommand(interaction) {
 	await endMeeting(interaction, voiceChannel);
 }
 
-export async function onButton(interaction, customData) {
-	const channel = await interaction.guild.channels.fetch(customData);
+export async function onButton(interaction: ButtonInteraction<'cached'>, id: string) {
+	const channel = await interaction.guild.channels.fetch(id) as VoiceBasedChannel;
 	await endMeeting(interaction, channel);
 }

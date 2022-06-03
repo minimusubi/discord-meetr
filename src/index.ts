@@ -17,7 +17,13 @@ client.once('ready', () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-	if (interaction.isCommand()) {
+	// All guilds should be cached, so long as the bot has guilds intent 
+	// Returns false if the bot wasn't invited with the bot scope
+	if (!interaction.inCachedGuild()) {
+		return;
+	}
+	
+	if (interaction.isChatInputCommand()) {
 		const command = client.commands.get(interaction.commandName);
 		
 		if (!command?.onCommand) {

@@ -1,4 +1,5 @@
-{
+{	
+	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
 		"ecmaVersion": 2022,
 		"ecmaFeatures": {
@@ -6,12 +7,18 @@
 		},
 		"sourceType": "module"
 	},
+	"plugins": [
+		"@typescript-eslint"
+	],
 	"env": {
 		"es2022": true,
 		"node": true
 	},
+	"globals": {
+		"NodeJS": "readonly"
+	},
 	"extends": [
-	  "eslint:recommended",
+	  "eslint:recommended"
 	],
 	"rules": {
 		// the rules below should be sorted in a same way they are sorted on http://eslint.org/docs/rules page

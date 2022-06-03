@@ -4,7 +4,7 @@ import {pluralize} from './number.js';
 
 dayjs.extend(durationPlugin);
 
-export function getHumanDuration(time, maxParts = 2) {
+export function getHumanDuration(time: number, maxParts = 2) {
 	const length = dayjs.duration(time);
 	const parts = [
 		{label: 'day', value: length.days()},
@@ -25,7 +25,7 @@ export function getHumanDuration(time, maxParts = 2) {
 	return relevantParts.join(' and ');
 }
 
-export function getShortDuration(time) {
+export function getShortDuration(time: number) {
 	const duration = dayjs.duration(time);
 	
 	if (duration.hours() > 0) {
@@ -37,9 +37,14 @@ export function getShortDuration(time) {
 	}
 }
 
-export function inferTime(input) {
+export interface TimeParts {
+	hours: number,
+	minutes: number
+}
+
+export function inferTime(input: string) {
 	// Extract A or P
-	let meridiem = input.match(/[^\d:]*?([ap])[^\d:]*$/i);
+	let meridiem: RegExpMatchArray | number | null = input.match(/[^\d:]*?([ap])[^\d:]*$/i);
 	if (meridiem) {
 		input = input.substring(0, meridiem.index);
 		
@@ -52,7 +57,7 @@ export function inferTime(input) {
 	
 	// Ignore anything that's not a digit or colon
 	// Split the numbers by colon
-	let time = input.replace(/[^\d:]+/g, '').split(/:+/).filter((element) => {
+	let time: any = input.replace(/[^\d:]+/g, '').split(/:+/).filter((element) => {
 		return element.length > 0;
 	});
 	
@@ -122,5 +127,5 @@ export function inferTime(input) {
 		time[0] = 0;
 	}
 	
-	return {hours: time[0], minutes: time[1]};
+	return {hours: time[0], minutes: time[1]} as TimeParts;
 }

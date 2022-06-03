@@ -1,16 +1,20 @@
 export default class Stopwatch {
+	duration: number;
+	time: number | null;
+	
 	constructor() {
-		this.reset();
+		this.duration = 0;
+		this.time = null;
 	}
 	
-	start() {
+	start(startTime?: number) {
 		if (this.time === null) {
-			this.time = Date.now();
+			this.time = startTime ?? Date.now();
 		}
 	}
 	
-	stop() {
-		this.duration += this._getRunningDuration();
+	stop(stopTime?: number) {
+		this.duration += this._getRunningDuration(stopTime);
 		this.time = null;
 		
 		return this.getTime();
@@ -21,9 +25,9 @@ export default class Stopwatch {
 		this.time = null;
 	}
 	
-	_getRunningDuration() {
+	_getRunningDuration(stopTime?: number) {
 		if (this.time !== null) {
-			return Date.now() - this.time;
+			return (stopTime ?? Date.now()) - this.time;
 		}
 		
 		return 0;
