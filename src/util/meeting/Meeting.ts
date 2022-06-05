@@ -1,7 +1,7 @@
 import datebook, {CalendarOptions} from 'datebook';
 import dayjs, {Dayjs} from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
-import {endMeeting} from '../../commands/end.js';
+import {endMeeting} from '../../actions/end.js';
 import {getHumanDuration, getShortDuration, TimeParts} from '../time.js';
 import Stopwatch from '../Stopwatch.js';
 import {GuildMember, TextBasedChannel, VoiceBasedChannel, VoiceState} from 'discord.js';

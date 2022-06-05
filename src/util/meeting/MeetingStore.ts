@@ -5,9 +5,11 @@ import {MeetingExistsError, NoMeetingExistsError} from './MeetingErrors.js';
 
 export default class MeetingStore {
 	ongoingMeetings: Collection<string, Meeting>;
+	hintedMeetings: Set<string>;
 	
 	constructor() {
 		this.ongoingMeetings = new Collection();
+		this.hintedMeetings = new Set();
 		// this.pastMeetings = [];
 	}
 	
@@ -21,6 +23,10 @@ export default class MeetingStore {
 		console.log(`Active meetings: ${this.ongoingMeetings.size}`);
 		
 		return meeting;
+	}
+	
+	hasMeeting(channel: VoiceBasedChannel) {
+		return this.ongoingMeetings.has(channel.id);
 	}
 	
 	getMeeting(channel: VoiceBasedChannel) {
@@ -40,6 +46,23 @@ export default class MeetingStore {
 		// this.pastMeetings.push(meeting);
 		this.ongoingMeetings.delete(channel.id);
 		console.log(`Active meetings: ${this.ongoingMeetings.size}`);
+	}
+	
+	addHint(channel: VoiceBasedChannel) {
+		if (this.hasHint(channel)) {
+			return false;
+		}
+		
+		this.hintedMeetings.add(channel.id);
+		return true;
+	}
+	
+	hasHint(channel: VoiceBasedChannel) {
+		return this.hintedMeetings.has(channel.id);
+	}
+	
+	removeHint(channel: VoiceBasedChannel) {
+		return this.hintedMeetings.delete(channel.id);
 	}
 	
 	async save() {

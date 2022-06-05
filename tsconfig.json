@@ -7,9 +7,10 @@
 		"allowSyntheticDefaultImports": true,
 		"module": "es2022",
 		"strict": true,
+		"incremental": true
 	},
 	"include": [
 		"./src/**/*",
-		"src/commands"
+		"src/actions"
 	]
 }

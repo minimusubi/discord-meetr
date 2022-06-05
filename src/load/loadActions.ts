@@ -1,22 +1,22 @@
 import {readdirSync} from 'node:fs';
 import {Client, Collection} from 'discord.js';
-import {Command} from '../types';
+import {Action} from '../types';
 
 declare module 'discord.js' {
 	// eslint-disable-next-line no-shadow, no-unused-vars
 	interface Client<Ready extends boolean = boolean> {
-		commands: Collection<string, Command>
+		botActions: Collection<string, Action>
 	}
 }
 
 export default async function loadCommands(client: Client) {
-	client.commands = new Collection();
-	const commandFiles = readdirSync('./commands').filter((file) => {
+	client.botActions = new Collection();
+	const commandFiles = readdirSync('./actions').filter((file) => {
 		return file.endsWith('.js');
 	});
 
 	for (const file of commandFiles) {
-		const command = (await import(`../commands/${file}`)) as Command;
-		client.commands.set(command.data.name, command);
+		const action = (await import(`../actions/${file}`)) as Action;
+		client.botActions.set(action.name, action);
 	}
 }

@@ -1,7 +1,8 @@
 import {Interaction, SlashCommandBuilder} from 'discord.js';
 
-export interface Command {
-	data: SlashCommandBuilder,
+export interface Action {
+	name: string,
+	data?: SlashCommandBuilder,
 	onCommand?: (interaction: Interaction) => Promise<void>,
 	onButton?: (interaction: Interaction, customData: Record<string, unknown>) => Promise<void>,
 }

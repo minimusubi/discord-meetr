@@ -2,8 +2,10 @@ import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builde
 import {ChannelType} from 'discord-api-types/v10';
 import {ChatInputCommandInteraction, VoiceBasedChannel} from 'discord.js';
 
+export const name = 'topic';
+
 export const data = new SlashCommandBuilder()
-	.setName('topic')
+	.setName(name)
 	.setDescription('Set the topic of the current meeting.')
 	.addStringOption((option) => {
 		return option.setName('topic')

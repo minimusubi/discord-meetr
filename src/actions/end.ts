@@ -4,8 +4,10 @@ import {Attachment, ButtonInteraction, ChatInputCommandInteraction, EmbedBuilder
 import Meeting from '../util/meeting/Meeting.js';
 import {inferTime} from '../util/time.js';
 
+export const name = 'end';
+
 export const data = new SlashCommandBuilder()
-	.setName('end')
+	.setName(name)
 	.setDescription('Ends a meeting.')
 	.addChannelOption((option) => {
 		return option.setName('channel')

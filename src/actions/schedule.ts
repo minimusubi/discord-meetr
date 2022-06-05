@@ -2,8 +2,11 @@ import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builde
 import {ChannelType} from 'discord-api-types/v10';
 import {ChatInputCommandInteraction, VoiceBasedChannel} from 'discord.js';
 
+export const dev = true;
+export const name = 'schedule';
+
 export const data = new SlashCommandBuilder()
-	.setName('schedule')
+	.setName(name)
 	.setDescription('Schedule a meeting.')
 	.addStringOption((option) => {
 		return option.setName('time')

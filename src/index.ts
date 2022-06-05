@@ -1,7 +1,8 @@
 import {Client} from 'discord.js';
 import {GatewayIntentBits} from 'discord-api-types/v10';
-import loadCommands from './load/loadCommands.js';
+import loadCommands from './load/loadActions.js';
 import loadSingletons from './load/loadSingletons.js';
+import loadListener from './load/loadListener.js';
 
 const client = new Client({intents: [
 	GatewayIntentBits.Guilds,
@@ -11,6 +12,7 @@ const client = new Client({intents: [
 
 await loadCommands(client);
 await loadSingletons(client);
+await loadListener(client);
 
 client.once('ready', () => {
 	console.log('Ready!');
@@ -24,7 +26,7 @@ client.on('interactionCreate', async (interaction) => {
 	}
 	
 	if (interaction.isChatInputCommand()) {
-		const command = client.commands.get(interaction.commandName);
+		const command = client.botActions.get(interaction.commandName);
 		
 		if (!command?.onCommand) {
 			console.error('No command handler available to handle interation!');
@@ -40,7 +42,7 @@ client.on('interactionCreate', async (interaction) => {
 		}
 	} else if (interaction.isButton()) {
 		const metadata = JSON.parse(interaction.customId);
-		const command = client.commands.get(metadata.command);
+		const command = client.botActions.get(metadata.command);
 		
 		if (!command?.onButton) {
 			console.error('No button handler available to handle interation!');
