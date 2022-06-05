@@ -86,8 +86,7 @@ export default class Meeting {
 		}
 		
 		try {
-			// @ts-ignore If statement above guarantees that member exists in Collection
-			this.members.get(member).start();
+			this.members.get(member)!.start();
 		} catch (error) {
 			console.log('member: ', member);
 			console.log('stopwatch: ', this.members.get(member));
@@ -95,12 +94,7 @@ export default class Meeting {
 	}
 	
 	removeMember(member: GuildMember) {
-		if (!this.members.has(member)) {
-			return;
-		}
-		
-		// @ts-ignore If statement above guarantees that member exists in Collection
-		this.members.get(member).stop();
+		this.members.get(member)?.stop();
 	}
 	
 	getMembers() {
@@ -161,8 +155,7 @@ export default class Meeting {
 			return null;
 		}
 		
-		// @ts-ignore If statement above guarantees endTime is not null
-		const calendar = new ICalendar(this.getCalendarOptions());
+		const calendar = new ICalendar(this.getCalendarOptions()!);
 		
 		return Buffer.from(calendar.render(), 'utf-8');
 	}
@@ -172,8 +165,7 @@ export default class Meeting {
 			return null;
 		}
 		
-		// @ts-ignore If statement above guarantees endTime is not null
-		const calendar = new OutlookCalendar(this.getCalendarOptions());
+		const calendar = new OutlookCalendar(this.getCalendarOptions()!);
 		calendar.setHost('office');
 		
 		return calendar.render();

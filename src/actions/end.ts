@@ -43,8 +43,7 @@ export async function endMeeting(interaction: ChatInputCommandInteraction<'cache
 			throw new Error('Meeting has not ended!');
 		}
 		
-		// @ts-ignore If statement above guarantees calendar functions will be non-nullable
-		const calendarAttachment = new Attachment(meeting.getCalendarEvent(), 'event.ics');
+		const calendarAttachment = new Attachment(meeting.getCalendarEvent()!, 'event.ics');
 		const embed = new EmbedBuilder()
 			.setTitle('Meeting Summary')
 			.setColor('#6c31ff')
@@ -63,14 +62,12 @@ export async function endMeeting(interaction: ChatInputCommandInteraction<'cache
 				},
 				{
 					name: 'Duration',
-					// @ts-ignore endTime if statement above guarantees getDuration will be non-nullable
-					value: `Ran for ${bold(meeting.getDuration())}`,
+					value: `Ran for ${bold(meeting.getDuration()!)}`,
 					inline: true,
 				},
 				{
 					name: 'Add to Outlook on the Web',
-					// @ts-ignore endTime if statement above guarantees calendar functions will be non-nullable
-					value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink())),
+					value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink()!)),
 					inline: false,
 				},
 			]).setFooter({text: `Started by ${meeting.getOwner().displayName}`, iconURL: meeting.getOwner().displayAvatarURL()});
