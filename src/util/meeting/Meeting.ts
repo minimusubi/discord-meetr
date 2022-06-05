@@ -116,19 +116,6 @@ export default class Meeting {
 		}
 	}
 	
-	endWithTime(parts: TimeParts) {
-		this.endTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
-		this.voiceChannel.client.off('voiceStateUpdate', this.listener);
-		
-		for (const [, stopwatch] of this.members) {
-			console.log(stopwatch);
-			if (stopwatch.time !== null) {
-				stopwatch.duration = this.endTime.toDate().valueOf() - stopwatch.time;
-				stopwatch.time = null;
-			}
-		}
-	}
-	
 	getDuration() {
 		if (this.endTime === null) {
 			return null;
