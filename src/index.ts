@@ -3,6 +3,7 @@ import {GatewayIntentBits} from 'discord-api-types/v10';
 import loadCommands from './load/loadActions.js';
 import loadSingletons from './load/loadSingletons.js';
 import loadListener from './load/loadListener.js';
+import {load} from './util/Store.js';
 
 const client = new Client({intents: [
 	GatewayIntentBits.Guilds,
@@ -14,8 +15,9 @@ await loadCommands(client);
 await loadSingletons(client);
 await loadListener(client);
 
-client.once('ready', () => {
+client.once('ready', async () => {
 	console.log('Ready!');
+	await load(client);
 });
 
 client.on('interactionCreate', async (interaction) => {

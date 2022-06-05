@@ -18,92 +18,74 @@ export const data = new SlashCommandBuilder()
 			.setDescription('Override the end time');
 	});
 
-export async function endMeeting(interaction: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'> | null, channel: VoiceBasedChannel) {
-	const meetingStore = (interaction ?? channel).client.singletons.meetingStore;
-	// @ts-ignore Below expression behaves correctly
-	const endTime: string | null = interaction?.options?.getString('time') ?? null;
-	
-	try {
-		const meeting = meetingStore.getMeeting(channel) as Meeting;
-		const topic = meeting.getTopic();
-		
-		if (endTime) {
-			const parts = inferTime(endTime);
-			
-			if (parts) {
-				meetingStore.stopMeeting(channel, parts);
-			} else {
-				meetingStore.stopMeeting(channel);
-			}
-		} else {
-			meetingStore.stopMeeting(channel);
-		}
-		
-		if (!meeting.endTime) {
-			throw new Error('Meeting has not ended!');
-		}
-		
-		const calendarAttachment = new Attachment(meeting.getCalendarEvent()!, 'event.ics');
-		const embed = new EmbedBuilder()
-			.setTitle('Meeting Summary')
-			.setColor('#6c31ff')
-			.addFields([
-				{
-					name: 'Participants',
-					value: meeting.getMembers().map(({member, duration}) => {
-						return `${userMention(member.id)} ${duration}`;
-					}).join('\n') || italic('No participants'),
-					inline: false,
-				},
-				{
-					name: 'Channel',
-					value: channelMention(channel.id),
-					inline: true,
-				},
-				{
-					name: 'Duration',
-					value: `Ran for ${bold(meeting.getDuration()!)}`,
-					inline: true,
-				},
-				{
-					name: 'Add to Outlook on the Web',
-					value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink()!)),
-					inline: false,
-				},
-			]).setFooter({text: `Started by ${meeting.getOwner().displayName}`, iconURL: meeting.getOwner().displayAvatarURL()});
-			
-		if (topic) {
-			embed.setDescription(topic);
-		}
-		
-		const sendMessage = interaction?.reply?.bind(interaction) ?? meeting.getTextChannel().send.bind(meeting.getTextChannel());
-		await sendMessage({embeds: [embed], files: [calendarAttachment]});
-		
-	} catch (error) {
-		if (error instanceof Error) {
-			if (error.name === 'NoMeetingExistsError') {
-				await interaction?.reply({content: `There is no meeting running in ${channelMention(channel.id)}!`, ephemeral: true});
-			}
-		}
-		
-		console.error(error);
-		await interaction?.reply({content: 'An error has occurred!', ephemeral: true});
+export async function endMeeting(meeting: Meeting, interaction?: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>) {
+	if (!meeting.endTime) {
+		throw new Error('Meeting has not ended!');
 	}
+	
+	const calendarAttachment = new Attachment(meeting.getCalendarEvent()!, 'event.ics');
+	const embed = new EmbedBuilder()
+		.setTitle('Meeting Summary')
+		.setColor('#6c31ff')
+		.addFields([
+			{
+				name: 'Participants',
+				value: meeting.getMembers().map(({member: memberID, duration}) => {
+					return `${userMention(memberID)} ${duration}`;
+				}).join('\n') || italic('No participants'),
+				inline: false,
+			},
+			{
+				name: 'Channel',
+				value: channelMention(meeting.voiceChannel.id),
+				inline: true,
+			},
+			{
+				name: 'Duration',
+				value: `Ran for ${bold(meeting.getDuration()!)}`,
+				inline: true,
+			},
+			{
+				name: 'Add to Outlook on the Web',
+				value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink()!)),
+				inline: false,
+			},
+		]).setFooter({text: `Started by ${meeting.getOwner().displayName}`, iconURL: meeting.getOwner().displayAvatarURL()});
+		
+	if (meeting.getTopic()) {
+		embed.setDescription(meeting.getTopic());
+	}
+		
+	const sendMessage = interaction?.reply?.bind(interaction) ?? meeting.initiator?.reply.bind(meeting.initiator) ?? meeting.getTextChannel().send.bind(meeting.getTextChannel());
+	await sendMessage({embeds: [embed], files: [calendarAttachment]});
 }
 
 export async function onCommand(interaction: ChatInputCommandInteraction<'cached'>) {
+	const meetingStore = interaction.client.singletons.meetingStore;
 	const member = interaction.member;
 	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as VoiceBasedChannel ?? null;
+	const endTime = interaction.options.getString('time') ?? null;
 	
 	if (voiceChannel === null) {
 		await interaction.reply({content: 'Error: You are not in a voice channel, nor did you specify one.', ephemeral: true});
 		return;
 	}
 	
-	await endMeeting(interaction, voiceChannel);
+	if (endTime) {
+		const parts = inferTime(endTime);
+		
+		if (parts) {
+			meetingStore.stopMeeting(voiceChannel, {overrideEndTime: parts});
+		} else {
+			meetingStore.stopMeeting(voiceChannel, {interaction});
+		}
+	} else {
+		meetingStore.stopMeeting(voiceChannel, {interaction});
+	}
 }
 
 export async function onButton(interaction: ButtonInteraction<'cached'>, id: string) {
+	const meetingStore = interaction.client.singletons.meetingStore;
 	const channel = await interaction.guild.channels.fetch(id) as VoiceBasedChannel;
-	await endMeeting(interaction, channel);
+	meetingStore.stopMeeting(channel, {interaction});
 }

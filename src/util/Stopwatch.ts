@@ -1,3 +1,8 @@
+export interface StopwatchExport {
+	duration: number,
+	time: number,
+}
+
 export default class Stopwatch {
 	duration: number;
 	time: number | null;
@@ -35,5 +40,12 @@ export default class Stopwatch {
 	
 	getTime() {
 		return this.duration + this._getRunningDuration();
+	}
+	
+	export(): StopwatchExport {
+		return {
+			duration: this.getTime(),
+			time: Date.now(),
+		};
 	}
 }

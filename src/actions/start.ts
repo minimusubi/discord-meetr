@@ -1,6 +1,6 @@
 import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builders';
 import {ChannelType, ButtonStyle} from 'discord-api-types/v10';
-import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ChatInputCommandInteraction, MessageActionRowComponentBuilder, VoiceBasedChannel} from 'discord.js';
+import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ChatInputCommandInteraction, Message, MessageActionRowComponentBuilder, VoiceBasedChannel} from 'discord.js';
 import {inferTime} from '../util/time.js';
 
 export const name = 'start';
@@ -37,6 +37,10 @@ export async function startMeeting(interaction: ChatInputCommandInteraction<'cac
 			throw new Error('Interaction channel is not cached!');
 		}
 		
+		if (interaction.isButton()) {
+			interaction.deferUpdate();
+		}
+		
 		const meeting = meetingStore.startMeeting(channel, interaction.channel, interaction.member);
 		meeting.setTopic(topic);
 		
@@ -57,7 +61,12 @@ export async function startMeeting(interaction: ChatInputCommandInteraction<'cac
 					.setLabel('End')
 					.setStyle(ButtonStyle.Primary),
 			]);
-		await interaction.reply({content, components: [row]});
+		const sendMessage = interaction.isButton() ? interaction.message.edit.bind(interaction.message) : interaction.reply.bind(interaction);
+		const response = await sendMessage({content, components: [row]});
+		if (response instanceof Message) {
+			console.log('set initiator');
+			meeting.setInitiator(response);
+		}
 	} catch (error) {
 		if (error instanceof Error) {
 			if (error.name === 'MeetingExistsError') {

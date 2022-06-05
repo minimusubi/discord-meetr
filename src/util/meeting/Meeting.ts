@@ -1,22 +1,35 @@
 import datebook, {CalendarOptions} from 'datebook';
 import dayjs, {Dayjs} from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
-import {endMeeting} from '../../actions/end.js';
 import {getHumanDuration, getShortDuration, TimeParts} from '../time.js';
-import Stopwatch from '../Stopwatch.js';
-import {GuildMember, TextBasedChannel, VoiceBasedChannel, VoiceState} from 'discord.js';
+import Stopwatch, {StopwatchExport} from '../Stopwatch.js';
+import {Client, GuildMember, Message, TextBasedChannel, VoiceBasedChannel, VoiceState} from 'discord.js';
+import {save} from '../Store.js';
 const {ICalendar, OutlookCalendar} = datebook;
 
 dayjs.extend(duration);
+
+export interface MeetingExport {
+	guild: string,
+	voiceChannel: string,
+	textChannel: string,
+	topic: string | null,
+	owner: string,
+	initiator: string | null,
+	startTime: number,
+	endTime: number | null,
+	members: {member: string, stopwatch: StopwatchExport}[],
+}
 
 export default class Meeting {
 	voiceChannel: VoiceBasedChannel;
 	textChannel: TextBasedChannel;
 	topic: string | null;
 	owner: GuildMember;
+	initiator: Message | null;
 	startTime: Dayjs;
 	endTime: Dayjs | null;
-	members: Map<GuildMember, Stopwatch>;
+	members: Map<string, Stopwatch>;
 	listener: (oldState: VoiceState, newState: VoiceState) => void;
 	
 	constructor(voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel, owner: GuildMember) {
@@ -24,6 +37,7 @@ export default class Meeting {
 		this.textChannel = textChannel;
 		this.topic = null;
 		this.owner = owner;
+		this.initiator = null;
 		this.startTime = dayjs();
 		this.endTime = null;
 		this.members = new Map();
@@ -39,7 +53,7 @@ export default class Meeting {
 			}
 			
 			if (this.voiceChannel.members.size === 0) {
-				await endMeeting(null, this.voiceChannel);
+				this.voiceChannel.client.singletons.meetingStore.stopMeeting(this.voiceChannel);
 			}
 		};
 		
@@ -61,6 +75,8 @@ export default class Meeting {
 	
 	setTopic(topic: string | null) {
 		this.topic = topic;
+		
+		save(this.voiceChannel.client);
 	}
 	
 	getTopic() {
@@ -71,6 +87,10 @@ export default class Meeting {
 		return this.owner;
 	}
 	
+	setInitiator(initiator: Message) {
+		this.initiator = initiator;
+	}
+	
 	setStartTime(parts: TimeParts) {
 		this.startTime = dayjs().hour(parts.hours).minute(parts.minutes).startOf('minute');
 		
@@ -78,23 +98,29 @@ export default class Meeting {
 			stopwatch.reset();
 			stopwatch.start(this.startTime.toDate().valueOf());
 		}
+		
+		save(this.voiceChannel.client);
 	}
 	
 	addMember(member: GuildMember) {
-		if (!this.members.has(member)) {
-			this.members.set(member, new Stopwatch());
+		if (!this.members.has(member.id)) {
+			this.members.set(member.id, new Stopwatch());
 		}
 		
 		try {
-			this.members.get(member)!.start();
+			this.members.get(member.id)!.start();
 		} catch (error) {
-			console.log('member: ', member);
-			console.log('stopwatch: ', this.members.get(member));
+			console.log('member: ', member.id);
+			console.log('stopwatch: ', this.members.get(member.id));
 		}
+		
+		save(this.voiceChannel.client);
 	}
 	
 	removeMember(member: GuildMember) {
-		this.members.get(member)?.stop();
+		this.members.get(member.id)?.stop();
+		
+		save(this.voiceChannel.client);
 	}
 	
 	getMembers() {
@@ -156,5 +182,75 @@ export default class Meeting {
 		calendar.setHost('office');
 		
 		return calendar.render();
+	}
+	
+	export(): MeetingExport {
+		return {
+			guild: this.voiceChannel.guildId,
+			voiceChannel: this.voiceChannel.id,
+			textChannel: this.textChannel.id,
+			topic: this.topic ?? null,
+			owner: this.owner.id,
+			initiator: this.initiator?.id ?? null,
+			startTime: this.startTime.valueOf(),
+			endTime: this.endTime?.valueOf() ?? null,
+			members: Array.from(this.members.entries()).map(([memberID, stopwatch]) => {
+				return {member: memberID, stopwatch: stopwatch.export()};
+			}),
+		};
+	}
+	
+	static async import(client: Client, object: MeetingExport) {
+		const guild = await client.guilds.fetch(object.guild);
+		if (!guild.available) {
+			throw new Error(`Guild ${object.guild} is unavailable`);
+		}
+		
+		const voiceChannel = await guild.channels.fetch(object.voiceChannel);
+		if (!voiceChannel?.isVoice()) {
+			throw new Error(`Channel ${object.voiceChannel} in guild ${object.guild} is either unavailable or not a voice channel`);
+		}
+		
+		const textChannel = await guild.channels.fetch(object.textChannel);
+		if (!textChannel?.isTextBased()) {
+			throw new Error(`Channel ${object.textChannel} in guild ${object.guild} is either unavailable or not a text channel`);
+		}
+		
+		const owner = await guild.members.fetch(object.owner);
+		
+		let initiator = null;
+		if (object.initiator) {
+			try {
+				initiator = await textChannel.messages.fetch(object.initiator) ?? null;
+			} catch (error) {}
+		}
+		
+		const meeting = new Meeting(voiceChannel, textChannel, owner);
+		
+		meeting.initiator = initiator;
+		meeting.topic = object.topic;
+		meeting.startTime = dayjs(object.startTime);
+		meeting.endTime = object.endTime ? dayjs(object.endTime) : null;
+		
+		for (const {member: memberID, stopwatch: stopwatchExport} of object.members) {
+			let stopwatch = meeting.members.get(memberID);
+			
+			if (stopwatch) {
+				stopwatch.duration += stopwatchExport.duration;
+				
+				if (stopwatchExport.time) {
+					stopwatch.time = stopwatchExport.time;
+				}
+			} else {
+				stopwatch = new Stopwatch();
+				stopwatch.duration = stopwatchExport.duration;
+				stopwatch.time = stopwatchExport.time;
+				stopwatch.stop();
+				
+				meeting.members.set(memberID, stopwatch);
+			}
+		}
+		
+		return meeting;
 	}
 }
