@@ -11,13 +11,13 @@ export const data = new SlashCommandBuilder()
 	.addStringOption((option) => {
 		return option.setName('topic')
 			.setDescription('Set the meeing topic');
+	}).addStringOption((option) => {
+		return option.setName('time')
+			.setDescription('Override the start time');
 	}).addChannelOption((option) => {
 		return option.setName('channel')
 			.setDescription('Set the voice channel')
 			.addChannelTypes(ChannelType.GuildVoice);
-	}).addStringOption((option) => {
-		return option.setName('time')
-			.setDescription('Override the start time');
 	});
 	
 export async function startMeeting(interaction: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>, channel: BaseGuildVoiceChannel) {

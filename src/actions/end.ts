@@ -9,13 +9,13 @@ export const name = 'end';
 export const data = new SlashCommandBuilder()
 	.setName(name)
 	.setDescription('Ends a meeting.')
-	.addChannelOption((option) => {
+	.addStringOption((option) => {
+		return option.setName('time')
+			.setDescription('Override the end time');
+	}).addChannelOption((option) => {
 		return option.setName('channel')
 			.setDescription('Specify the voice channel')
 			.addChannelTypes(ChannelType.GuildVoice);
-	}).addStringOption((option) => {
-		return option.setName('time')
-			.setDescription('Override the end time');
 	});
 
 export async function endMeeting(meeting: Meeting, interaction?: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>) {
