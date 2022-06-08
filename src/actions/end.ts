@@ -23,7 +23,7 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 		throw new Error('Meeting has not ended!');
 	}
 	
-	const calendarAttachment = new AttachmentBuilder(meeting.getCalendarEvent()!, {name: 'event.ics'});
+	const calendarAttachment = new AttachmentBuilder(await meeting.getCalendarEvent(), {name: 'event.ics'});
 	const embed = new EmbedBuilder()
 		.setTitle('Meeting Summary')
 		.setColor('#6c31ff')
@@ -47,7 +47,7 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 			},
 			{
 				name: 'Add to Outlook on the Web',
-				value: bold(hyperlink('Click to add this meeting to your calendar', meeting.getCalendarLink()!)),
+				value: bold(hyperlink('Click to add this meeting to your calendar', await meeting.getCalendarLink())),
 				inline: false,
 			},
 		]).setFooter({text: `Started by ${meeting.getOwner().displayName}`, iconURL: meeting.getOwner().displayAvatarURL()});

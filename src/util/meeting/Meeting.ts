@@ -5,9 +5,19 @@ import {getHumanDuration, getShortDuration, TimeParts} from '../time.js';
 import Stopwatch, {StopwatchExport} from '../Stopwatch.js';
 import {BaseGuildVoiceChannel, Client, GuildMember, Message, TextBasedChannel, VoiceState} from 'discord.js';
 import {save} from '../Store.js';
+import {readFile} from 'fs/promises';
+import path from 'path';
+import CalendarAttendee from 'datebook/dist/types/CalendarAttendee';
 const {ICalendar, OutlookCalendar} = datebook;
 
 dayjs.extend(duration);
+
+const ATTENDEE_MAP_FILE = 'attendeeMap.json';
+
+type MeetingParticipant = {
+	name: string,
+	email: string,
+}
 
 export interface MeetingExport {
 	guild: string,
@@ -138,15 +148,31 @@ export default class Meeting {
 	
 	getDuration() {
 		if (this.endTime === null) {
-			return null;
+			throw new Error('Meeting has not ended.');
 		}
 		
 		return getHumanDuration(this.endTime.diff(this.startTime));
 	}
 	
-	getCalendarOptions() {
+	async getCalendarOptions() {
 		if (this.endTime === null) {
-			return null;
+			throw new Error('Meeting has not ended.');
+		}
+		
+		let attendees: CalendarAttendee[] = [];
+		try {
+			const attendeeMap: Record<string, MeetingParticipant> = JSON.parse(await readFile(path.join('.', ATTENDEE_MAP_FILE), 'utf-8'));
+			
+			for (const [memberID] of this.members) {
+				if (attendeeMap[memberID]) {
+					attendees.push({
+						name: attendeeMap[memberID].name,
+						email: attendeeMap[memberID].email,
+					});
+				}
+			}
+		} catch (error) {
+			console.error(error);
 		}
 		
 		return {
@@ -154,28 +180,37 @@ export default class Meeting {
 			location: `#${this.voiceChannel.name} in Discord`,
 			start: this.startTime.toDate(),
 			end: this.endTime.toDate(),
+			attendees,
 		} as CalendarOptions;
 	}
 	
-	getCalendarEvent() {
+	async getCalendarEvent() {
 		if (this.endTime === null) {
-			return null;
+			throw new Error('Meeting has not ended.');
 		}
 		
-		const calendar = new ICalendar(this.getCalendarOptions()!);
+		const calendar = new ICalendar(await this.getCalendarOptions());
 		
 		return Buffer.from(calendar.render(), 'utf-8');
 	}
 	
-	getCalendarLink() {
+	async getCalendarLink() {
 		if (this.endTime === null) {
-			return null;
+			throw new Error('Meeting has not ended.');
 		}
 		
-		const calendar = new OutlookCalendar(this.getCalendarOptions()!);
+		const options = await this.getCalendarOptions();
+		const calendar = new OutlookCalendar(await this.getCalendarOptions());
 		calendar.setHost('office');
 		
-		return calendar.render();
+		console.log(options.attendees);
+		if (options.attendees && options.attendees.length > 0) {
+			return `${calendar.render()}&to=${encodeURIComponent(options.attendees.map((attendee) => {
+				return `"${attendee.name}" <${attendee.email}>`;
+			}).join(','))}`;
+		} else {
+			return calendar.render();
+		}
 	}
 	
 	export(): MeetingExport {
