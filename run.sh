@@ -1,6 +1,6 @@
 #!/bin/bash
 
-npm install && npm run build
+npm install && npm run build && npm run deploy
 
 while ! npm run start
 do
