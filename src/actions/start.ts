@@ -1,6 +1,6 @@
 import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builders';
-import {ChannelType, ButtonStyle} from 'discord-api-types/v10';
-import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ChatInputCommandInteraction, Message, MessageActionRowComponentBuilder, VoiceBasedChannel} from 'discord.js';
+import {ButtonStyle, ChannelType} from 'discord-api-types/v10';
+import {ActionRowBuilder, BaseGuildVoiceChannel, ButtonBuilder, ButtonInteraction, ChatInputCommandInteraction, Message, MessageActionRowComponentBuilder} from 'discord.js';
 import {inferTime} from '../util/time.js';
 
 export const name = 'start';
@@ -20,7 +20,7 @@ export const data = new SlashCommandBuilder()
 			.setDescription('Override the start time');
 	});
 	
-export async function startMeeting(interaction: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>, channel: VoiceBasedChannel) {
+export async function startMeeting(interaction: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>, channel: BaseGuildVoiceChannel) {
 	const meetingStore = interaction.client.singletons.meetingStore;
 	// @ts-ignore Below expression behaves correctly
 	const topic = interaction.options?.getString('topic');
@@ -62,9 +62,8 @@ export async function startMeeting(interaction: ChatInputCommandInteraction<'cac
 					.setStyle(ButtonStyle.Primary),
 			]);
 		const sendMessage = interaction.isButton() ? interaction.message.edit.bind(interaction.message) : interaction.reply.bind(interaction);
-		const response = await sendMessage({content, components: [row]});
+		const response = await sendMessage({content, components: [row], fetchReply: interaction.isChatInputCommand() ? true : undefined});
 		if (response instanceof Message) {
-			console.log('set initiator');
 			meeting.setInitiator(response);
 		}
 	} catch (error) {
@@ -82,7 +81,7 @@ export async function startMeeting(interaction: ChatInputCommandInteraction<'cac
 
 export async function onCommand(interaction: ChatInputCommandInteraction<'cached'>) {
 	const member = interaction.member;
-	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as VoiceBasedChannel ?? null;
+	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as BaseGuildVoiceChannel ?? null;
 	
 	if (voiceChannel === null) {
 		await interaction.reply({content: 'Error: You are not in a voice channel, nor did you specify one.', ephemeral: true});
@@ -93,6 +92,6 @@ export async function onCommand(interaction: ChatInputCommandInteraction<'cached
 }
 
 export async function onButton(interaction: ButtonInteraction<'cached'>, id: string) {
-	const channel = await interaction.guild.channels.fetch(id) as VoiceBasedChannel;
+	const channel = await interaction.guild.channels.fetch(id) as BaseGuildVoiceChannel;
 	await startMeeting(interaction, channel);
 }

@@ -1,4 +1,4 @@
-import {ButtonInteraction, ChatInputCommandInteraction, Client, Collection, GuildMember, TextBasedChannel, VoiceBasedChannel} from 'discord.js';
+import {BaseGuildVoiceChannel, ButtonInteraction, ChatInputCommandInteraction, Client, Collection, GuildMember, TextBasedChannel} from 'discord.js';
 import {endMeeting} from '../../actions/end.js';
 import {save} from '../Store.js';
 import {TimeParts} from '../time.js';
@@ -17,7 +17,7 @@ export default class MeetingStore {
 		// this.pastMeetings = [];
 	}
 	
-	startMeeting(voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel, member: GuildMember) {
+	startMeeting(voiceChannel: BaseGuildVoiceChannel, textChannel: TextBasedChannel, member: GuildMember) {
 		if (this.ongoingMeetings.has(voiceChannel.id)) {
 			throw new MeetingExistsError(`A meeting is already running in ${voiceChannel.id}!`);
 		}
@@ -31,11 +31,11 @@ export default class MeetingStore {
 		return meeting;
 	}
 	
-	hasMeeting(channel: VoiceBasedChannel) {
+	hasMeeting(channel: BaseGuildVoiceChannel) {
 		return this.ongoingMeetings.has(channel.id);
 	}
 	
-	getMeeting(channel: VoiceBasedChannel) {
+	getMeeting(channel: BaseGuildVoiceChannel) {
 		const meeting = this.ongoingMeetings.get(channel.id);
 		
 		if (!meeting) {
@@ -45,7 +45,7 @@ export default class MeetingStore {
 		return meeting;
 	}
 	
-	stopMeeting(channel: VoiceBasedChannel, {overrideEndTime, interaction}: {overrideEndTime?: TimeParts, interaction?: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>} = {}) {
+	stopMeeting(channel: BaseGuildVoiceChannel, {overrideEndTime, interaction}: {overrideEndTime?: TimeParts, interaction?: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>} = {}) {
 		const meeting = this.getMeeting(channel);
 		
 		meeting.end(overrideEndTime);
@@ -57,7 +57,7 @@ export default class MeetingStore {
 		save(channel.client);
 	}
 	
-	addHint(channel: VoiceBasedChannel) {
+	addHint(channel: BaseGuildVoiceChannel) {
 		if (this.hasHint(channel)) {
 			return false;
 		}
@@ -66,11 +66,11 @@ export default class MeetingStore {
 		return true;
 	}
 	
-	hasHint(channel: VoiceBasedChannel) {
+	hasHint(channel: BaseGuildVoiceChannel) {
 		return this.hintedMeetings.has(channel.id);
 	}
 	
-	removeHint(channel: VoiceBasedChannel) {
+	removeHint(channel: BaseGuildVoiceChannel) {
 		return this.hintedMeetings.delete(channel.id);
 	}
 	
@@ -114,6 +114,10 @@ export default class MeetingStore {
 			}
 		}
 		
-		console.log(`Imported ${meetings.length}/${meetingResults.length} meetings`);
+		await save(client);
+		
+		if (meetingResults.length > 0) {
+			console.log(`Imported ${meetings.length} of ${meetingResults.length} meetings`);
+		}
 	}
 }

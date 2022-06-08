@@ -3,7 +3,7 @@ import dayjs, {Dayjs} from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 import {getHumanDuration, getShortDuration, TimeParts} from '../time.js';
 import Stopwatch, {StopwatchExport} from '../Stopwatch.js';
-import {Client, GuildMember, Message, TextBasedChannel, VoiceBasedChannel, VoiceState} from 'discord.js';
+import {BaseGuildVoiceChannel, Client, GuildMember, Message, TextBasedChannel, VoiceState} from 'discord.js';
 import {save} from '../Store.js';
 const {ICalendar, OutlookCalendar} = datebook;
 
@@ -22,7 +22,7 @@ export interface MeetingExport {
 }
 
 export default class Meeting {
-	voiceChannel: VoiceBasedChannel;
+	voiceChannel: BaseGuildVoiceChannel;
 	textChannel: TextBasedChannel;
 	topic: string | null;
 	owner: GuildMember;
@@ -32,7 +32,7 @@ export default class Meeting {
 	members: Map<string, Stopwatch>;
 	listener: (oldState: VoiceState, newState: VoiceState) => void;
 	
-	constructor(voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel, owner: GuildMember) {
+	constructor(voiceChannel: BaseGuildVoiceChannel, textChannel: TextBasedChannel, owner: GuildMember) {
 		this.voiceChannel = voiceChannel;
 		this.textChannel = textChannel;
 		this.topic = null;
@@ -107,13 +107,7 @@ export default class Meeting {
 			this.members.set(member.id, new Stopwatch());
 		}
 		
-		try {
-			this.members.get(member.id)!.start();
-		} catch (error) {
-			console.log('member: ', member.id);
-			console.log('stopwatch: ', this.members.get(member.id));
-		}
-		
+		this.members.get(member.id)!.start();
 		save(this.voiceChannel.client);
 	}
 	
@@ -207,7 +201,7 @@ export default class Meeting {
 		}
 		
 		const voiceChannel = await guild.channels.fetch(object.voiceChannel);
-		if (!voiceChannel?.isVoice()) {
+		if (!voiceChannel?.isVoiceBased()) {
 			throw new Error(`Channel ${object.voiceChannel} in guild ${object.guild} is either unavailable or not a voice channel`);
 		}
 		
@@ -225,13 +219,14 @@ export default class Meeting {
 			} catch (error) {}
 		}
 		
+		// Create the meeting
 		const meeting = new Meeting(voiceChannel, textChannel, owner);
-		
 		meeting.initiator = initiator;
 		meeting.topic = object.topic;
 		meeting.startTime = dayjs(object.startTime);
 		meeting.endTime = object.endTime ? dayjs(object.endTime) : null;
 		
+		// Add saved meeting participants
 		for (const {member: memberID, stopwatch: stopwatchExport} of object.members) {
 			let stopwatch = meeting.members.get(memberID);
 			

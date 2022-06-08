@@ -7,6 +7,7 @@ import {load} from './util/Store.js';
 
 const client = new Client({intents: [
 	GatewayIntentBits.Guilds,
+	GatewayIntentBits.GuildMessages,
 	GatewayIntentBits.GuildVoiceStates,
 	GatewayIntentBits.MessageContent,
 ]});
@@ -31,7 +32,7 @@ client.on('interactionCreate', async (interaction) => {
 		const command = client.botActions.get(interaction.commandName);
 		
 		if (!command?.onCommand) {
-			console.error('No command handler available to handle interation!');
+			console.error('No command handler available to handle interation.');
 			console.error(`Command: ${interaction.commandName}`);
 			return;
 		}
@@ -40,7 +41,7 @@ client.on('interactionCreate', async (interaction) => {
 			await command.onCommand(interaction);
 		} catch (error) {
 			console.error(error);
-			await interaction.reply({content: 'There was an error while executing this command!', ephemeral: true});
+			await interaction.reply({content: 'Something happened while executing this command.', ephemeral: true});
 		}
 	} else if (interaction.isButton()) {
 		const metadata = JSON.parse(interaction.customId);
@@ -56,7 +57,7 @@ client.on('interactionCreate', async (interaction) => {
 			await command.onButton(interaction, metadata.data);
 		} catch (error) {
 			console.error(error);
-			await interaction.reply({content: 'There was an error while executing this button!', ephemeral: true});
+			await interaction.reply({content: 'Something happened while executing this button.', ephemeral: true});
 		}
 	}
 });

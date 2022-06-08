@@ -1,5 +1,5 @@
-import {join, dirname} from 'path';
-import {Low, JSONFile} from 'lowdb';
+import {dirname, join} from 'path';
+import {JSONFile, Low} from 'lowdb';
 import {fileURLToPath} from 'url';
 import {Client} from 'discord.js';
 import MeetingStore from './meeting/MeetingStore.js';

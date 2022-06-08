@@ -21,7 +21,7 @@
     "datebook": "^7.0.8",
     "dayjs": "^1.11.0",
     "discord-api-types": "^0.33.2",
-    "discord.js": "^14.0.0-dev.1653480262-68d5169",
+    "discord.js": "^14.0.0-dev.1654646880-ecc6600",
     "dotenv": "^16.0.0",
     "erlpack": "github:discord/erlpack",
     "lowdb": "^3.0.0",

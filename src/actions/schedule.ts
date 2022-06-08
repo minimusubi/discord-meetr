@@ -1,6 +1,6 @@
 import {channelMention, inlineCode, SlashCommandBuilder} from '@discordjs/builders';
 import {ChannelType} from 'discord-api-types/v10';
-import {ChatInputCommandInteraction, VoiceBasedChannel} from 'discord.js';
+import {BaseGuildVoiceChannel, ChatInputCommandInteraction} from 'discord.js';
 
 export const dev = true;
 export const name = 'schedule';
@@ -24,7 +24,7 @@ export const data = new SlashCommandBuilder()
 			.setDescription('Make the meeting recurring on weekdays. Specify any combination of UMTWRFS.');
 	});
 
-async function setTopic(interaction: ChatInputCommandInteraction<'cached'>, channel: VoiceBasedChannel) {
+async function setTopic(interaction: ChatInputCommandInteraction<'cached'>, channel: BaseGuildVoiceChannel) {
 	const meetingStore = interaction.client.singletons.meetingStore;
 	const topic = interaction.options.getString('topic');
 		
@@ -51,7 +51,7 @@ async function setTopic(interaction: ChatInputCommandInteraction<'cached'>, chan
 
 export async function onCommand(interaction: ChatInputCommandInteraction<'cached'>) {
 	const member = interaction.member;
-	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as VoiceBasedChannel ?? null;
+	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as BaseGuildVoiceChannel ?? null;
 	
 	if (voiceChannel === null) {
 		await interaction.reply({content: 'Error: You are neither in a voice channel, nor did you specify one.', ephemeral: true});

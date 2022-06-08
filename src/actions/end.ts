@@ -1,6 +1,6 @@
 import {bold, channelMention, hyperlink, italic, SlashCommandBuilder, userMention} from '@discordjs/builders';
 import {ChannelType} from 'discord-api-types/v10';
-import {Attachment, ButtonInteraction, ChatInputCommandInteraction, EmbedBuilder, VoiceBasedChannel} from 'discord.js';
+import {AttachmentBuilder, BaseGuildVoiceChannel, ButtonInteraction, ChatInputCommandInteraction, EmbedBuilder} from 'discord.js';
 import Meeting from '../util/meeting/Meeting.js';
 import {inferTime} from '../util/time.js';
 
@@ -23,7 +23,7 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 		throw new Error('Meeting has not ended!');
 	}
 	
-	const calendarAttachment = new Attachment(meeting.getCalendarEvent()!, 'event.ics');
+	const calendarAttachment = new AttachmentBuilder(meeting.getCalendarEvent()!, {name: 'event.ics'});
 	const embed = new EmbedBuilder()
 		.setTitle('Meeting Summary')
 		.setColor('#6c31ff')
@@ -57,13 +57,18 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 	}
 		
 	const sendMessage = interaction?.reply?.bind(interaction) ?? meeting.initiator?.reply.bind(meeting.initiator) ?? meeting.getTextChannel().send.bind(meeting.getTextChannel());
-	await sendMessage({embeds: [embed], files: [calendarAttachment]});
+	try {
+		await sendMessage({embeds: [embed], files: [calendarAttachment]});
+	} catch (error) {
+		console.error('Error sending meeting end message');
+		console.error(error);
+	}
 }
 
 export async function onCommand(interaction: ChatInputCommandInteraction<'cached'>) {
 	const meetingStore = interaction.client.singletons.meetingStore;
 	const member = interaction.member;
-	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as VoiceBasedChannel ?? null;
+	const voiceChannel = member.voice.channel ?? interaction.options.getChannel('channel') as BaseGuildVoiceChannel ?? null;
 	const endTime = interaction.options.getString('time') ?? null;
 	
 	if (voiceChannel === null) {
@@ -86,6 +91,6 @@ export async function onCommand(interaction: ChatInputCommandInteraction<'cached
 
 export async function onButton(interaction: ButtonInteraction<'cached'>, id: string) {
 	const meetingStore = interaction.client.singletons.meetingStore;
-	const channel = await interaction.guild.channels.fetch(id) as VoiceBasedChannel;
+	const channel = await interaction.guild.channels.fetch(id) as BaseGuildVoiceChannel;
 	meetingStore.stopMeeting(channel, {interaction});
 }

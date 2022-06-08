@@ -12,7 +12,7 @@ export default async function loadListener(client: Client) {
 			return;
 		}
 		
-		if (channel?.isVoice() && oldState.channelId !== channel.id) {
+		if (channel?.isVoiceBased() && channel?.isTextBased() && oldState.channelId !== channel.id) {
 			if (!meetingStore.hasMeeting(channel) && meetingStore.addHint(channel)) {
 				const content = `${userMention(newState.member.id)} Would you like to start a meeting here?`;
 				const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
@@ -28,9 +28,16 @@ export default async function loadListener(client: Client) {
 							.setLabel('Dismiss')
 							.setStyle(ButtonStyle.Secondary),
 					]);
-				await channel.send({content, components: [row]});
+				const message = await channel.send({content, components: [row]});
+				setTimeout(async () => {
+					try {
+						if (message.deletable && message.editedTimestamp !== null) {
+							await message.delete();
+						}
+					} catch (error) {}
+				}, 1000 * 60 * 5);
 			}
-		} else if (oldState.channel?.isVoice() && oldState.channelId !== newState.channelId) {
+		} else if (oldState.channel?.isVoiceBased() && oldState.channelId !== newState.channelId) {
 			if (oldState.channel.members.size === 0) {
 				meetingStore.removeHint(oldState.channel);
 			}

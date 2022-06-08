@@ -133,6 +133,7 @@
 		"no-var": "error",
 		"prefer-arrow-callback": "warn",
 		"prefer-template": "warn",
-		"template-curly-spacing": ["error", "never"]
+		"template-curly-spacing": ["error", "never"],
+		"sort-imports": ["warn", {"ignoreCase": true, "ignoreDeclarationSort": true}]
 	}
 }
