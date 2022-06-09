@@ -34,7 +34,7 @@ export default async function loadListener(client: Client) {
 						if (message.deletable && message.editedTimestamp !== null) {
 							await message.delete();
 						}
-					} catch (error) {}
+					} catch {}
 				}, 1000 * 60 * 5);
 			}
 		} else if (oldState.channel?.isVoiceBased() && oldState.channelId !== newState.channelId) {

@@ -251,7 +251,7 @@ export default class Meeting {
 		if (object.initiator) {
 			try {
 				initiator = await textChannel.messages.fetch(object.initiator) ?? null;
-			} catch (error) {}
+			} catch {}
 		}
 		
 		// Create the meeting
