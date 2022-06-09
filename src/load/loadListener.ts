@@ -31,7 +31,7 @@ export default async function loadListener(client: Client) {
 				const message = await channel.send({content, components: [row]});
 				setTimeout(async () => {
 					try {
-						if (message.deletable && message.editedTimestamp !== null) {
+						if (message.deletable && message.editedTimestamp === null) {
 							await message.delete();
 						}
 					} catch {}
