@@ -55,13 +55,23 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 	if (meeting.getTopic()) {
 		embed.setDescription(meeting.getTopic());
 	}
-		
-	const sendMessage = interaction?.reply?.bind(interaction) ?? meeting.initiator?.reply.bind(meeting.initiator) ?? meeting.getTextChannel().send.bind(meeting.getTextChannel());
-	try {
-		await sendMessage({embeds: [embed], files: [calendarAttachment]});
-	} catch (error) {
-		console.error('Error sending meeting end message');
-		console.error(error);
+	
+	const payload = {embeds: [embed], files: [calendarAttachment]};
+	let message = null;
+	if (interaction?.reply) {
+		try {
+			message = await interaction.reply(payload);
+		} catch {}
+	}
+	if (!message && meeting.initiator) {
+		try {
+			message = await meeting.initiator.reply(payload);
+		} catch {}
+	}
+	if (!message) {
+		try {
+			message = await meeting.getTextChannel().send(payload);
+		} catch {}
 	}
 }
 
