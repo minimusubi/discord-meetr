@@ -1,19 +1,25 @@
-import {BaseGuildVoiceChannel, ButtonInteraction, ChatInputCommandInteraction, Client, Collection, GuildMember, TextBasedChannel} from 'discord.js';
+import {BaseGuildVoiceChannel, ButtonInteraction, ChatInputCommandInteraction, Client, Collection, GuildMember, Message, TextBasedChannel, VoiceChannel} from 'discord.js';
 import {endMeeting} from '../../actions/end.js';
 import {save} from '../Store.js';
 import {TimeParts} from '../time.js';
 import Meeting, {MeetingExport} from './Meeting.js';
 import {MeetingExistsError, NoMeetingExistsError} from './MeetingErrors.js';
 
-export type MeetingStoreExport = Array<MeetingExport>;
+export type MeetingStoreExport = {
+	meetings: Array<MeetingExport>,
+	hints: Array<{
+		channel: string,
+		message: string,
+	}>,
+}
 
 export default class MeetingStore {
 	ongoingMeetings: Collection<string, Meeting>;
-	hintedMeetings: Set<string>;
+	meetingHints: Map<string, Message>;
 	
 	constructor() {
 		this.ongoingMeetings = new Collection();
-		this.hintedMeetings = new Set();
+		this.meetingHints = new Map();
 		// this.pastMeetings = [];
 	}
 	
@@ -57,67 +63,102 @@ export default class MeetingStore {
 		save(channel.client);
 	}
 	
-	addHint(channel: BaseGuildVoiceChannel) {
+	addHint(channel: BaseGuildVoiceChannel, message: Message) {
 		if (this.hasHint(channel)) {
 			return false;
 		}
 		
-		this.hintedMeetings.add(channel.id);
+		this.meetingHints.set(channel.id, message);
 		return true;
 	}
 	
 	hasHint(channel: BaseGuildVoiceChannel) {
-		return this.hintedMeetings.has(channel.id);
+		return this.meetingHints.has(channel.id);
+	}
+	
+	getHint(channel: BaseGuildVoiceChannel) {
+		return this.meetingHints.get(channel.id);
 	}
 	
 	removeHint(channel: BaseGuildVoiceChannel) {
-		return this.hintedMeetings.delete(channel.id);
+		return this.meetingHints.delete(channel.id);
 	}
 	
 	export(): MeetingStoreExport {
-		return Array.from(this.ongoingMeetings.values()).map((meeting) => {
-			return meeting.export();
-		});
+		return {
+			meetings: Array.from(this.ongoingMeetings.values()).map((meeting) => {
+				return meeting.export();
+			}),
+			hints: Array.from(this.meetingHints.entries()).map(([channelID, message]) => {
+				return {
+					channel: channelID,
+					message: message.id,
+				};
+			}),
+		};
 	}
 	
 	static async import(client: Client, object: MeetingStoreExport) {
 		const meetingStore = client.singletons.meetingStore;
-		const meetingResults = await Promise.allSettled(object.map((meetingExport) => {
-			return Meeting.import(client, meetingExport);
-		}));
 		
-		for (const importResult of meetingResults) {
-			if (importResult.status === 'fulfilled') {
-				const meeting = importResult.value;
-				meetingStore.ongoingMeetings.set(meeting.voiceChannel.id, meeting);
-			} else {
-				console.error('Error importing meeting');
-				console.error(importResult.reason);
+		// Import meetings
+		if (object.meetings) {
+			const meetingResults = await Promise.allSettled(object.meetings.map((meetingExport) => {
+				return Meeting.import(client, meetingExport);
+			}));
+			
+			for (const importResult of meetingResults) {
+				if (importResult.status === 'fulfilled') {
+					const meeting = importResult.value;
+					meetingStore.ongoingMeetings.set(meeting.voiceChannel.id, meeting);
+				} else {
+					console.error('Error importing meeting');
+					console.error(importResult.reason);
+				}
+			}
+			
+			// Typecasting causes ESLint to see extra parenthesis
+			// eslint-disable-next-line no-extra-parens
+			const meetings = (meetingResults.filter((result) => {
+				return result.status === 'fulfilled';
+			}) as PromiseFulfilledResult<Meeting>[]).map((result) => {
+				return result.value;
+			});
+			
+			await Promise.allSettled(meetings.map((meeting) => {
+				meeting.voiceChannel.fetch();
+			}));
+			
+			for (const meeting of meetings) {
+				if (meeting.voiceChannel.members.size === 0) {
+					meetingStore.stopMeeting(meeting.voiceChannel);
+				}
+			}
+			
+			if (meetingResults.length > 0) {
+				console.log(`Imported ${meetings.length} of ${meetingResults.length} meetings`);
 			}
 		}
 		
-		// Typecasting causes ESLint to see extra parenthesis
-		// eslint-disable-next-line no-extra-parens
-		const meetings = (meetingResults.filter((result) => {
-			return result.status === 'fulfilled';
-		}) as PromiseFulfilledResult<Meeting>[]).map((result) => {
-			return result.value;
-		});
-		
-		await Promise.allSettled(meetings.map((meeting) => {
-			meeting.voiceChannel.fetch();
-		}));
-		
-		for (const meeting of meetings) {
-			if (meeting.voiceChannel.members.size === 0) {
-				meetingStore.stopMeeting(meeting.voiceChannel);
+		// Import meeting hints
+		if (object.hints) {
+			const hintResults = await Promise.allSettled(object.hints.map(async ({channel: channelID, message: messageID}) => {
+				const channel = await client.channels.fetch(channelID) as VoiceChannel;
+				const message = await channel.messages.fetch(messageID);
+				
+				return {channelID, message};
+			}));
+			
+			for (const importResult of hintResults) {
+				if (importResult.status === 'fulfilled') {
+					meetingStore.meetingHints.set(importResult.value.channelID, importResult.value.message);
+				} else {
+					console.error('Error importing meeting hint');
+					console.error(importResult.reason);
+				}
 			}
 		}
 		
 		await save(client);
-		
-		if (meetingResults.length > 0) {
-			console.log(`Imported ${meetings.length} of ${meetingResults.length} meetings`);
-		}
 	}
 }

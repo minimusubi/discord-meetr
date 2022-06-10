@@ -15,17 +15,19 @@ createDefaultData();
 
 export async function save(client: Client) {
 	createDefaultData();
-	db.data!.meetings = client.singletons.meetingStore.export();
+	db.data!.meetingStore = client.singletons.meetingStore.export();
 	
 	await db.write();
 }
 
 export async function load(client: Client) {
 	createDefaultData();
-	MeetingStore.import(client, db.data!.meetings);
+	try {
+		await MeetingStore.import(client, db.data!.meetingStore);
+	} catch {}
 }
 
 function createDefaultData() {
 	db.data ||= {};
-	db.data.meetings ||= [];
+	db.data.meetingStore ||= {};
 }
