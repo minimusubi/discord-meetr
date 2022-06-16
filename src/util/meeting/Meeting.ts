@@ -63,7 +63,7 @@ export default class Meeting {
 			}
 			
 			if (this.voiceChannel.members.size === 0) {
-				this.voiceChannel.client.singletons.meetingStore.stopMeeting(this.voiceChannel);
+				await this.voiceChannel.client.singletons.meetingStore.stopMeeting(this.voiceChannel);
 			}
 		};
 		

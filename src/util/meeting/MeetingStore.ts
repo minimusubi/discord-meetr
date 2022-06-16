@@ -51,13 +51,13 @@ export default class MeetingStore {
 		return meeting;
 	}
 	
-	stopMeeting(channel: BaseGuildVoiceChannel, {overrideEndTime, interaction}: {overrideEndTime?: TimeParts, interaction?: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>} = {}) {
+	async stopMeeting(channel: BaseGuildVoiceChannel, {overrideEndTime, interaction}: {overrideEndTime?: TimeParts, interaction?: ChatInputCommandInteraction<'cached'> | ButtonInteraction<'cached'>} = {}) {
 		const meeting = this.getMeeting(channel);
 		
 		meeting.end(overrideEndTime);
 		// this.pastMeetings.push(meeting);
 		this.ongoingMeetings.delete(channel.id);
-		endMeeting(meeting, interaction);
+		await endMeeting(meeting, interaction);
 		console.log(`Active meetings: ${this.ongoingMeetings.size}`);
 		
 		save(channel.client);
@@ -131,7 +131,7 @@ export default class MeetingStore {
 			
 			for (const meeting of meetings) {
 				if (meeting.voiceChannel.members.size === 0) {
-					meetingStore.stopMeeting(meeting.voiceChannel);
+					await meetingStore.stopMeeting(meeting.voiceChannel);
 				}
 			}
 			

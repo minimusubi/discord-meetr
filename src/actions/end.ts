@@ -91,17 +91,17 @@ export async function onCommand(interaction: ChatInputCommandInteraction<'cached
 		const parts = inferTime(endTime);
 		
 		if (parts) {
-			meetingStore.stopMeeting(voiceChannel, {overrideEndTime: parts});
+			await meetingStore.stopMeeting(voiceChannel, {overrideEndTime: parts});
 		} else {
-			meetingStore.stopMeeting(voiceChannel, {interaction});
+			await meetingStore.stopMeeting(voiceChannel, {interaction});
 		}
 	} else {
-		meetingStore.stopMeeting(voiceChannel, {interaction});
+		await meetingStore.stopMeeting(voiceChannel, {interaction});
 	}
 }
 
 export async function onButton(interaction: ButtonInteraction<'cached'>, id: string) {
 	const meetingStore = interaction.client.singletons.meetingStore;
 	const channel = await interaction.guild.channels.fetch(id) as BaseGuildVoiceChannel;
-	meetingStore.stopMeeting(channel, {interaction});
+	await meetingStore.stopMeeting(channel, {interaction});
 }
