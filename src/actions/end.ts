@@ -24,6 +24,7 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 	}
 	
 	const calendarAttachment = new AttachmentBuilder(await meeting.getCalendarEvent(), {name: 'event.ics'});
+	const range = meeting.getRange();
 	const embed = new EmbedBuilder()
 		.setTitle('Meeting Summary')
 		.setColor('#6c31ff')
@@ -42,7 +43,7 @@ export async function endMeeting(meeting: Meeting, interaction?: ChatInputComman
 			},
 			{
 				name: 'Duration',
-				value: `Ran for ${bold(meeting.getDuration()!)}`,
+				value: `Ran for ${bold(meeting.getDuration()!)}, from ${range.start} - ${range.end}`,
 				inline: true,
 			},
 			{

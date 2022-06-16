@@ -154,6 +154,17 @@ export default class Meeting {
 		return getHumanDuration(this.endTime.diff(this.startTime));
 	}
 	
+	getRange() {
+		if (this.endTime === null) {
+			throw new Error('Meeting has not ended.');
+		}
+		
+		return {
+			start: this.startTime.format('h:mm A'),
+			end: this.endTime.format('h:mm A'),
+		};
+	}
+	
 	async getCalendarOptions() {
 		if (this.endTime === null) {
 			throw new Error('Meeting has not ended.');
