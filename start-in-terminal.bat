@@ -1,0 +1,1 @@
+wt -w 0 new-tab --startingDirectory %~dp0 cmd /K "C:\Program Files\Git\usr\bin\bash.exe" -i -l run.sh

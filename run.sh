@@ -8,4 +8,4 @@ do
 	sleep 1
 done
 
-exho "Node exited normally"
+echo "Node exited normally"
